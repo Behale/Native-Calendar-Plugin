@@ -154,7 +154,8 @@
       }
 
       EKEvent *theEvent = nil;
-
+    if (calEventID != nil) {
+          theEvent = (EKEvent *)[self.eventStore eventWithIdentifier:calEventID];
     if (theEvent != nil && theEvent.occurrenceDate != nil) {
       NSPredicate *predicate =
           [self.eventStore predicateForEventsWithStartDate:myStartDate
@@ -169,6 +170,7 @@
         }
         theEvent = nil;
       }
+    }
     }
     // Find matches
     if (calEventID == nil) {
