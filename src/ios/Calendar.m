@@ -801,34 +801,62 @@
   }
 }
 
-- (void) deleteEventById:(CDVInvokedUrlCommand*)command {
-  NSDictionary* options = [command.arguments objectAtIndex:0];
-  NSString* ciid = [options objectForKey:@"id"];
-  NSNumber* fromTime = [options objectForKey:@"fromTime"];
+- (void)deleteEventById:(CDVInvokedUrlCommand *)command {
+  NSDictionary *options = [command.arguments objectAtIndex:0];
+  NSString *ciid = [options objectForKey:@"id"];
+  NSNumber *fromTime = [options objectForKey:@"fromTime"];
 
-  [self.commandDelegate runInBackground: ^{
-
+  [self.commandDelegate runInBackground:^{
     // Get original instance
-    EKEvent* firstEvent = (EKEvent *)[eventStore eventWithIdentifier:ciid];
+    EKEvent *firstEvent = (EKEvent *)[eventStore eventWithIdentifier:ciid];
     if (firstEvent == nil) {
       // Fail
       [self.commandDelegate
-        sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find event."]
-        callbackId:command.callbackId];
+          sendPluginResult:[CDVPluginResult
+                               resultWithStatus:CDVCommandStatus_ERROR
+                                messageAsString:@"Could not find event."]
+                callbackId:command.callbackId];
       return;
     } else {
-      EKEvent* instance;
+      EKEvent *instance;
       if (fromTime != nil && fromTime != (id)NSNull.null) {
         // Find target instance
-        NSDate* fromDate = [NSDate dateWithTimeIntervalSince1970:(fromTime.doubleValue / 1000)]; // strip millis
-        NSArray<EKEvent*>* toDelete = [eventStore eventsMatchingPredicate:[eventStore predicateForEventsWithStartDate:fromDate endDate:NSDate.distantFuture calendars:@[firstEvent.calendar]]];
+        NSDate *fromDate =
+            [NSDate dateWithTimeIntervalSince1970:(fromTime.doubleValue /
+                                                   1000)]; // strip millis
+        NSDate *toDate = [NSDate
+            dateWithTimeIntervalSince1970:((fromTime.doubleValue / 1000 +
+                                            86399))]; // strip millis
+
+        NSArray<EKEvent *> *toDelete = [eventStore
+            eventsMatchingPredicate:[eventStore
+                                        predicateForEventsWithStartDate:fromDate
+                                                                endDate:toDate
+                                                              calendars:@[
+                                                                firstEvent
+                                                                    .calendar
+                                                              ]]];
+
         if (toDelete.count < 1) {
           // Nothing to delete
-          [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
+          [self.commandDelegate
+              sendPluginResult:[CDVPluginResult
+                                   resultWithStatus:CDVCommandStatus_OK]
+                    callbackId:command.callbackId];
           return;
         }
-        NSArray<EKEvent*>* toDeleteSorted = [toDelete sortedArrayUsingSelector:@selector(compareStartDateWithEvent:)];
-        instance = toDeleteSorted.firstObject;
+        NSArray<EKEvent *> *toDeleteSorted = [toDelete
+            sortedArrayUsingSelector:@selector(compareStartDateWithEvent:)];
+
+        for (int i = 0; i < toDeleteSorted.count; i++) {
+          EKEvent *event = [toDeleteSorted objectAtIndex:i];
+
+          if ([event.eventIdentifier isEqualToString:ciid]) {
+            instance = event;
+            break;
+          }
+        }
+
       } else {
         // First instance is target
         instance = firstEvent;
@@ -836,16 +864,26 @@
 
       // Delete
       NSError *error = nil;
-      [eventStore removeEvent:instance span:EKSpanFutureEvents error:&error];
+      if (fromTime != nil && fromTime != (id)NSNull.null) {
+        [eventStore removeEvent:instance span:EKSpanThisEvent error:&error];
+
+      } else {
+        [eventStore removeEvent:instance span:EKSpanFutureEvents error:&error];
+      }
       if (error != nil) {
         // Fail
         [self.commandDelegate
-          sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not delete event."]
-          callbackId:command.callbackId];
+            sendPluginResult:[CDVPluginResult
+                                 resultWithStatus:CDVCommandStatus_ERROR
+                                  messageAsString:@"Could not delete event."]
+                  callbackId:command.callbackId];
         return;
       } else {
         // Succeed
-        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
+        [self.commandDelegate
+            sendPluginResult:[CDVPluginResult
+                                 resultWithStatus:CDVCommandStatus_OK]
+                  callbackId:command.callbackId];
         return;
       }
     }
