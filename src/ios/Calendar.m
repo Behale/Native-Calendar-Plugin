@@ -162,13 +162,13 @@
                                                    endDate:myEndDate
                                                  calendars:calendars];
       NSArray *results = [self.eventStore eventsMatchingPredicate:predicate];
-      for (int i = 0; i < results.count; i++) {
+   for (int i = 0; i < results.count; i++) {
         EKEvent *event = [results objectAtIndex:i];
         if ([event.eventIdentifier isEqualToString:calEventID]) {
           theEvent = event;
+          modifyAllOccurence=NO;
           break;
         }
-        theEvent = nil;
       }
     }
     }
@@ -256,8 +256,11 @@
 
       // Now save the new details back to the store
       NSError *error = nil;
-      [self.eventStore saveEvent:theEvent span:EKSpanThisEvent error:&error];
-
+      if(modifyAllOccurence==NO){
+        [self.eventStore saveEvent:theEvent span:EKSpanThisEvent error:&error];
+      } else {
+        [self.eventStore saveEvent:theEvent span:EKSpanFutureEvents error:&error];
+      }
 
       // Check error code + return result
       if (error) {
