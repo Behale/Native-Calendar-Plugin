@@ -154,6 +154,8 @@
       }
 
       EKEvent *theEvent = nil;
+      BOOL modifyAllOccurence = YES;
+
     if (calEventID != nil) {
           theEvent = (EKEvent *)[self.eventStore eventWithIdentifier:calEventID];
     if (theEvent != nil && theEvent.occurrenceDate != nil) {
